@@ -1,8 +1,271 @@
 ---
 title: "Project 2"
-author: "Me"
-date: "2020-12-01"
+date: "2020-12-09"
 output: html_document
 ---
 
-## Test Project 2
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+###Joyce Tiong- jt38832 Project 2 
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{R}
+library(dplyr)
+library(ggplot2)
+accidents <- read.csv("Airbag_data.csv")
+accidents <- select(accidents, -2, -9)
+```
+*This is an adapted dataset from the DAAG package, which I downloaded from https://vincentarelbundock.github.io/Rdatasets/datasets.html. It includes data on police-reported car crashes in the U.S. from 1997-2002 in which there was harm to either people or property. The variable dvcat is the estimated impact speed in km/hr. The dead column shows either the front-seat occupants were dead or alive. Airbag indicates if there was an airbag in the car (none or airbag). Seatbelt indicates if the people in the car had a seat belt on (none or belted). Frontal shows if it was a frontal or non-frontal impact (0=non-frontal, 1=frontal. ageOFocc shows the age of occupants in years. YearVeh shows the model year of the vehicle. occRole shows whether the occupant was a driver or passenger. Deploy shows if the airbag was deployed(1) or not deployed/unknown(0), and injSeverity shows how serious the injury was (0 being no injury, and 4 being most severe injuries). There are 250 observations*
+
+
+```{R}
+#Perform a MANOVA testing whether any of your numeric variables (or a subset of them, if including them all is unreasonable or doesn’t make sense) show a mean difference across levels of one of your categorical variables (3). If they do, perform univariate ANOVAs to find response(s) showing a mean difference across groups (3), and perform post-hoc t tests to find which groups differ (3). Discuss the number of tests you have performed, calculate the probability of at least one type I error (if unadjusted), and adjust the significance level accordingly (bonferroni correction) before discussing significant differences (3). Briefly discuss MANOVA assumptions and whether or not they are likely to have been met (no need for anything too in-depth) (2).
+
+man1<-manova(cbind(ageOFocc, yearVeh)~injSeverity, data=accidents)
+summary(man1)
+
+#univariate ANOVAs 
+summary.aov(man1)
+
+#post-hoc t tests 
+pairwise.t.test(accidents$ageOFocc, accidents$injSeverity, p.adj="none")
+pairwise.t.test(accidents$yearVeh, accidents$injSeverity, p.adj="none")
+
+
+#Type 1 error rate 
+1-(.95^4) #1MANOVA, 1 ANOVA and 2 t tests 
+
+#Bonferroni correction
+0.05/4
+
+library(rstatix)
+
+group <- accidents$injSeverity
+DVs <- accidents %>% select(ageOFocc, yearVeh)
+
+#Test multivariate normality for each group (null: assumption met)
+sapply(split(DVs,group), mshapiro_test)
+
+#If any p<.05, stop. If not, test homogeneity of covariance matrices
+
+#Box's M test (null: assumption met)
+box_m(DVs, group)
+
+lapply(split(DVs,group), cov)
+```
+
+** The manova demonstrates that there was a signficant difference in injury severity levels across at least one of the dependent variables (age of occupants and the year of vehicle), as demonstrated by the p value of 0.04809. Therefore, I ran a univariate ANOVA along with 2 post-hoc t tests. This required 4 total tests (1 MANOVA, 1 ANOVA, and 2 t tests). The probability of at least 1 Type 1 error was 0.1854938. After using the Bonferroni correction, which was 0.5/#of tests, the significance value should be 0.0125. Using this correction, there was a significant difference between the age of occupants for individuals in an accident that resulted in an injury serverity level of 4, based on pvalues that are all below this threshold. Based on the yearVeh post-hoc t test, there was no difference in vehicle make year across the different injury severity levels. I then tested MANOVA assumptions, and found that the data is normal based on the mshapiro test. This does not meet the MANOVA assumptions because there is not a normal distribution, as evidenced by the p value that is less than 0.05. Based on the Box's M-test, the data does meet the criteria for homogeneity.**
+```{R}
+#Perform some kind of randomization test on your data (that makes sense). The statistic can be anything you want (mean difference, correlation, F-statistic/ANOVA, chi-squared), etc. State null and alternative hypotheses, perform the test, and interpret the results (7). Create a plot visualizing the null distribution and the test statistic (3).
+
+diffs<-vector()
+for(i in 1:5000){
+random <- accidents %>% mutate(age=sample(accidents$ageOFocc))
+diffs[i] <- random %>% summarize(mean(age[seatbelt=="belted"]) - mean(age[seatbelt=="none"]))%>%pull
+}
+accidents %>% group_by(seatbelt) %>% summarize(mean=mean(ageOFocc))
+39.77381-35.74390
+mean(diffs>4.02991 | diffs < -4.02991)
+
+{hist(diffs,main="",ylab=""); abline(v = c(4.02991,-4.02991),col="red")}
+```
+
+*I decided to test the correlation between age of occupants and whether or not they were wearing seatbelts. The null hypothesis is that there is no difference in the mean age of occupants who did and didn't wear seatbelts. The alternative hypothesis is that there is a significant difference in the mean age of those who did and didn't wear seatbelts. Based on the p value of 0.1302, we fail to reject our null hypothesis that there is no age difference between those who did and didn't wear seatbelts.*
+```{R}
+#Build a linear regression model predicting one of your response variables from at least 2 other variables, including their interaction. Mean-center any numeric variables involved in the interaction.
+library(tidyr)
+library(ggplot2)
+accidents$agecent <- accidents$ageOFocc - mean(accidents$ageOFocc)
+regression1 <- lm(injSeverity ~ seatbelt, data=accidents)
+summary(regression1)
+regression2 <- lm(injSeverity ~ accidents$agecent, data=accidents)
+summary(regression2)
+regression3 <- lm(injSeverity~seatbelt*accidents$agecent, data=accidents)
+summary(regression3)
+#Interpret the coefficient estimates (do not discuss significance) (10)
+
+#Plot the regression using ggplot() using geom_smooth(method=“lm”). If your interaction is numeric by numeric, refer to code in the slides to make the plot or check out the interactions package, which makes this easier. If you have 3 or more predictors, just chose two of them to plot for convenience. (8)
+
+accidents%>%ggplot(aes(x=agecent,y=injSeverity, group=seatbelt))+geom_point()+geom_smooth(method = 'lm',se=F, aes(color=seatbelt))
+                                                                                                                            
+#Check assumptions of linearity, normality, and homoskedasticity either graphically or using a hypothesis test (4)
+#linearity and homoskedasticity 
+resids<-lm(injSeverity~seatbelt*accidents$agecent, data=accidents)$residuals
+fitted<-lm(injSeverity~seatbelt*accidents$agecent, data=accidents)$fitted.values
+ggplot()+geom_point(aes(fitted,resids))+geom_hline(yintercept=0, color='red')
+#normality 
+shapiro.test(resids)
+#Regardless, recompute regression results with robust standard errors via coeftest(..., vcov=vcovHC(...)). Discuss significance of results, including any changes from before/after robust SEs if applicable. (8)
+install.packages("lmtest", repos= "http://cran.us.r-project.org")
+library(lmtest)
+library(sandwich)
+coeftest(regression3, vcov=vcovHC(regression3))
+
+#What proportion of the variation in the outcome does your model explain? (4)
+(sum((accidents$injSeverity-mean(accidents$injSeverity))^2)-sum(regression3$residuals^2))/sum((accidents$injSeverity-mean(accidents$injSeverity))^2)
+```
+*The coefficients estimate for injSeverity~seatbelt demonstrate that not wearing a seatbelt is associated with an increase in injury severity, as evidenced by the positive coefficient. The same is true for age; as age increases, so does injury severity as evidenced by the positive coefficient. The coefficient estimates for the injSeverity~seatbelt and agecent interaction shows that the slope of age on injury severity for those not wearing a seatbelt is -.002399 less than those wearing a seatbelt (not significant). It also shows that for every 1 year increase in age, the predicted injury severity for those wearing a seatbelt increases by .011642 (significant). Based on the plot of fitvals and resids, the data doesn't meet the assumptions of linearity or homoskedasticity since the data points slope downwards. The data is normal based on the greater than 0.5 p value from the Shapiro-Wilk normality test. Before and after using the robust standard errors, age was significantly associated with injury severity for those wearing a seatbelt and not wearing a seatbelt was significantly associated with injury severity for those at the average age. The proportion of variation in injury severity that is predicted by the model is 0.0866484, as evidenced by the R squared value.*
+```{R}
+
+#Rerun same regression model (with the interaction), but this time compute bootstrapped standard errors (either by resampling observations or residuals). Discuss any changes you observe in SEs and p-values using these SEs compared to the original SEs and the robust SEs)
+library(dplyr)
+  fit1<-lm(injSeverity~seatbelt*agecent, data=accidents) #fit model
+  resids<-fit1$residuals #save residuals
+  fitted<-fit1$fitted.values #save yhats
+  resid_resamp<-replicate(5,{
+    new_resids<-sample(resids,replace=TRUE) #resample resids w/ replacement
+    accidents$new_y<-fitted+new_resids #add new resids to yhats to get new "data"
+    fit_new<-lm(new_y~seatbelt*agecent, data=accidents) #refit model
+    coef(fit_new) #save coefficient estimates (b0, b1, etc)
+    
+})
+resid_resamp%>% t %>% as.data.frame%>%summarize_all(sd)
+```
+*The bootstrapped, robust, and original SEs are very similar to each other, with the seatbeltnone and seatbeltnone:agecent bootstrapped standard errors slightly larger than the robust and original standard errors and the agecent bootstrapped standard errors slightly smaller than the robust and original errors. Therefore, there would not be changes in significance based on the p values with the bootstrapped, robust, and original SEs. * 
+```{R}
+#Fit a logistic regression model predicting a binary variable (if you don’t have one, make/get one) from at least two explanatory variables (interaction not necessary).
+log.reg <- glm(frontal~dvcat+injSeverity, data=accidents, family="binomial")
+coeftest(log.reg)
+
+#Interpret coefficient estimates in context (10)
+#Report a confusion matrix for your logistic regression (2)
+#Compute and discuss the Accuracy, Sensitivity (TPR), Specificity (TNR), Precision (PPV), and AUC of your model (5)
+library(glmnet)
+prob <- predict(log.reg, type="response")
+class_diag<-function(probs,truth){
+  
+  tab<-table(factor(probs>.5,levels=c("FALSE","TRUE")),truth)
+  acc=sum(diag(tab))/sum(tab)
+  sens=tab[2,2]/colSums(tab)[2]
+  spec=tab[1,1]/colSums(tab)[1]
+  ppv=tab[2,2]/rowSums(tab)[2]
+  
+  if(is.numeric(truth)==FALSE & is.logical(truth)==FALSE) truth<-as.numeric(truth)-1
+  
+  #CALCULATE EXACT AUC
+  ord<-order(probs, decreasing=TRUE)
+  probs <- probs[ord]; truth <- truth[ord]
+  
+  TPR=cumsum(truth)/max(1,sum(truth)) 
+  FPR=cumsum(!truth)/max(1,sum(!truth))
+  
+  dup<-c(probs[-1]>=probs[-length(probs)], FALSE)
+  TPR<-c(0,TPR[!dup],1); FPR<-c(0,FPR[!dup],1)
+  
+  n <- length(TPR)
+  auc<- sum( ((TPR[-1]+TPR[-n])/2) * (FPR[-1]-FPR[-n]) )
+  
+  data.frame(acc,sens,spec,ppv,auc)
+}
+class_diag(prob,accidents$frontal)
+
+#Using ggplot, make a density plot of the log-odds (logit) colored/grouped by your binary outcome variable (3)
+library(tidyverse)
+accidents$logit<-predict(log.reg, type="link")
+factor= cut(accidents$frontal, 2)
+accidents %>% ggplot(aes(logit, fill=factor, color=factor)) + geom_density(alpha=.4) + 
+  geom_vline(xintercept=0,lty=2) + xlab("logit (log-odds)")
+
+#Generate an ROC curve (plot) and calculate AUC (either manually or with a package); interpret (5)
+library(plotROC)
+prob<-predict(log.reg,type="response")
+ROCplot<-ggplot(log.reg)+geom_roc(aes(d=frontal,m=prob), n.cuts=0)
+ROCplot
+calc_auc(ROCplot)
+```
+*The logistic regression model shows that in relation to a car going 1-9 km/h in an accident of average injury severity, there is an increase in the likelihood that the accident was of frontal impact for cars that were going 10km/h or above. This is evidenced by the positive coefficient estimates for all all of the dvcat categories. Additionally, the model shows that there is a signficant relationship between dvcat levels 10-24, 25-39, 40-54, and 55+ and the likelihood of a frontal impact, such that dvat25-39 has the strongest correlation with frontal impact (p=0.001566). The 10-2 dvcat category was likley a data input error that should have been 10-24. The confusion matrix shows that the model has high sensitivity and low specificity. The AUC value of 0.635 shows that the model does a poor job of predicting frontal accidents overall.*
+
+```{R}
+# Perform a logistic regression predicting the same binary response variable from ALL of the rest of your variables (the more, the better!)
+
+log.reg2 <- glm(accidents$frontal~accidents$dead+accidents$airbag+accidents$seatbelt+accidents$sex+accidents$ageOFocc+accidents$yearVeh+accidents$occRole+accidents$deploy, family="binomial")
+summary(log.reg2)
+#Fit model, compute in-sample classification diagnostics (Accuracy, Sensitivity, Specificity, Precision, AUC), and interpret (5)
+library(glmnet)
+prob <- predict(log.reg2, type="response")
+class_diag<-function(probs,truth){
+  
+  tab<-table(factor(probs>.5,levels=c("FALSE","TRUE")),truth)
+  acc=sum(diag(tab))/sum(tab)
+  sens=tab[2,2]/colSums(tab)[2]
+  spec=tab[1,1]/colSums(tab)[1]
+  ppv=tab[2,2]/rowSums(tab)[2]
+  
+  if(is.numeric(truth)==FALSE & is.logical(truth)==FALSE) truth<-as.numeric(truth)-1
+  
+  #CALCULATE EXACT AUC
+  ord<-order(probs, decreasing=TRUE)
+  probs <- probs[ord]; truth <- truth[ord]
+  
+  TPR=cumsum(truth)/max(1,sum(truth)) 
+  FPR=cumsum(!truth)/max(1,sum(!truth))
+  
+  dup<-c(probs[-1]>=probs[-length(probs)], FALSE)
+  TPR<-c(0,TPR[!dup],1); FPR<-c(0,FPR[!dup],1)
+  
+  n <- length(TPR)
+  auc<- sum( ((TPR[-1]+TPR[-n])/2) * (FPR[-1]-FPR[-n]) )
+  
+  data.frame(acc,sens,spec,ppv,auc)
+}
+class_diag(prob,accidents$frontal)
+
+#Perform 10-fold (or repeated random sub-sampling) CV with the same model and report average out-of-sample classification diagnostics (Accuracy, Sensitivity, Specificity, Precision, and AUC); interpret AUC and compare with the in-sample metrics (10)
+#kfold 
+#test 
+
+set.seed(1234)
+k=10
+data1<-accidents[sample(nrow(accidents)),] #put dataset in random order
+folds<-cut(seq(1:nrow(accidents)),breaks=k,labels=F) #create folds
+
+diags<-NULL
+for(i in 1:k){          # FOR EACH OF 10 FOLDS
+  train<-data1[folds!=i,] # CREATE TRAINING SET
+  test<-data1[folds==i,]  # CREATE TESTING SET
+  
+  truth<-test$frontal
+  
+  fit2 <- glm(frontal~dead+airbag+seatbelt+sex+ageOFocc+yearVeh+occRole+deploy, data=train, family="binomial")
+  prob2 <- predict(fit2, type="response", newdata=test)
+  
+  diags<-rbind(diags,class_diag(prob2,truth)) #CV DIAGNOSTICS FOR EACH FOLD
+}
+
+summarize_all(diags,mean)
+
+#Perform LASSO on the same model/variables. Choose lambda to give the simplest model whose accuracy is near that of the best (i.e., lambda.1se). Discuss which variables are retained. (5)
+
+y<-as.matrix(accidents$frontal) #grab response
+frontal_preds<-model.matrix(frontal ~ -1 + ., data = accidents) #grab predictors
+cv<-cv.glmnet(frontal_preds,y, family="binomial")
+lasso_fit<-glmnet(frontal_preds,y, family="binomial",lambda=cv$lambda.1se)
+predict(lasso_fit, frontal_preds, type="response")
+coef(lasso_fit)
+
+#Perform 10-fold CV using only the variables lasso selected: compare model’s out-of-sample AUC to that of your logistic regressions above (5)
+
+set.seed(1234)
+k=10
+data <- accidents %>% sample_frac #put rows of dataset in random order
+folds <- ntile(1:nrow(data),n=10) #create fold labels
+diags<-NULL
+for(i in 1:k){
+  train <- data[folds!=i,] #create training set (all but fold i)
+  test <- data[folds==i,] #create test set (just fold i)
+  truth <- test$frontal #save truth labels from fold i
+  fit <- glm(frontal~ airbag+sex+deploy,
+             data=train, family="binomial")
+  probs <- predict(fit, newdata=test, type="response")
+  diags<-rbind(diags,class_diag(probs,truth))
+}
+diags%>%summarize_all(mean)
+```
+*The logisitc regression shows that there is a signficant correlation between whether or not the accident was frontal and whether there was an airbag, the driver was male, and the airbag was deployed. The confusion matrix shows that the model has high sensitivity, but low specificity. The AUC value (0.7418538) from this confusion matrix shows that the model does a fair job overall of predicting a frontal accident. Using the 10-fold CV, the accuracy, sensitivity, specificity, and precision values are slightly lower than in the previous model. Additionally, the 10-fold CV model does a poor job of predicting a frontal accident (0.6804909). The values that are retained by Lasso are dvcat 1-9, dvcat 10-24, airbagnone, sexm, and deploy, indicating that these are the most important predictors. After using only the variables retained by lasso, the AUC value is slightly lower than the original 10-fold CV model, and the accuracy, sensitivity, specficity, and precision are roughly equal.*
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

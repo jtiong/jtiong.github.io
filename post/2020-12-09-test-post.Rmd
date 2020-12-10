@@ -1,10 +1,33 @@
 ---
-title: 'Test Post '
+title: 'Python and R '
 author: 'Joyce Tiong '
 date: '2020-12-09'
-slug: test-post
-categories: []
-tags: []
 description: ''
+slug: test-post
+tags: []
+categories: []
 ---
-###Test
+*This semester, we've learned how to code in two important languages: Python and R! Reticulate allows us to connect the two. With the reticulate package, we are able to run python code in R studio. Here I demonstrate how to load the reticulate package so that we can start using python code.*
+
+```{R}
+library(reticulate)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+```
+*Two significant and useful packages that we've used in python this semester are pandas and numpy. Using pandas, we can import a csv and create a dataframe. With numpy, we can do basic statistical functions, like median and mean, on variables within this dataset. Here I demonstrate these functions using the pottery dataset, which includes the chemical compositions of pottery fragments at four sites in the British Isles. *
+```{python}
+import pandas as pd
+import numpy as np
+pottery = pd.read_csv("http://www.nathanielwoodward.com/Pottery.csv", index_col=0)
+np.mean(pottery.Al)
+np.median(pottery.Al)
+np.max(pottery.Al)
+```
+*We can also visualize this python dataset using ggplot in R. Below, I show how to create a bar plot of the average amounts of the various elements. *
+```{R}
+df <- py$pottery 
+long_pottery <- df %>% pivot_longer(c("Al", "Fe", "Mg", "Ca", "Na"), names_to="Elements", values_to="Amounts")
+long_pottery %>% ggplot(aes(x=Elements, y=Amounts))+geom_bar(stat="summary")+ggtitle("Amount of Each Element Discovered at Ancient Pottery Sites")
+```
+

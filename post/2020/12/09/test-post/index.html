@@ -7,7 +7,7 @@
     <meta name="author" content="Joyce Tiong " />
     
     <link rel="shortcut icon" type="image/x-icon" href="../../../../../img/favicon.ico">
-    <title>Test Post </title>
+    <title>Python and R </title>
     <meta name="generator" content="Hugo 0.79.0" />
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
     <link rel="stylesheet" type="text/css" href="../../../../../css/main.css" />
@@ -54,7 +54,7 @@
       <div class="container">
         <div class="blog-post">
           <h3>
-            <strong><a href="../../../../../post/2020/12/09/test-post/">Test Post </a></strong>
+            <strong><a href="../../../../../post/2020/12/09/test-post/">Python and R </a></strong>
           </h3>
         </div>
  
@@ -74,9 +74,37 @@
 <script src="../../../../../rmarkdown-libs/anchor-sections/anchor-sections.js"></script>
 
 
-<div id="test" class="section level3">
-<h3>Test</h3>
-</div>
+<p><em>This semester, we've learned how to code in two important languages: Python and R! Reticulate allows us to connect the two. With the reticulate package, we are able to run python code in R studio. Here I demonstrate how to load the reticulate package so that we can start using python code.</em></p>
+<pre class="r"><code>library(reticulate)
+library(ggplot2)
+library(dplyr)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;dplyr&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:stats&#39;:
+## 
+##     filter, lag</code></pre>
+<pre><code>## The following objects are masked from &#39;package:base&#39;:
+## 
+##     intersect, setdiff, setequal, union</code></pre>
+<pre class="r"><code>library(tidyr)</code></pre>
+<p><em>Two significant and useful packages that we've used in python this semester are pandas and numpy. Using pandas, we can import a csv and create a dataframe. With numpy, we can do basic statistical functions, like median and mean, on variables within this dataset. Here I demonstrate these functions using the pottery dataset, which includes the chemical compositions of pottery fragments at four sites in the British Isles. </em></p>
+<pre class="python"><code>import pandas as pd
+import numpy as np
+pottery = pd.read_csv(&quot;http://www.nathanielwoodward.com/Pottery.csv&quot;, index_col=0)
+np.mean(pottery.Al)</code></pre>
+<pre><code>## 14.492307692307692</code></pre>
+<pre class="python"><code>np.median(pottery.Al)</code></pre>
+<pre><code>## 13.800000000000001</code></pre>
+<pre class="python"><code>np.max(pottery.Al)</code></pre>
+<pre><code>## 20.800000000000001</code></pre>
+<p><em>We can also visualize this python dataset using ggplot in R. Below, I show how to create a bar plot of the average amounts of the various elements. </em></p>
+<pre class="r"><code>df &lt;- py$pottery </code></pre>
+<pre><code>## Warning in py_to_r.pandas.core.frame.DataFrame(x): index contains duplicated
+## values: row names not set</code></pre>
+<pre class="r"><code>long_pottery &lt;- df %&gt;% pivot_longer(c(&quot;Al&quot;, &quot;Fe&quot;, &quot;Mg&quot;, &quot;Ca&quot;, &quot;Na&quot;), names_to=&quot;Elements&quot;, values_to=&quot;Amounts&quot;)
+long_pottery %&gt;% ggplot(aes(x=Elements, y=Amounts))+geom_bar(stat=&quot;summary&quot;)+ggtitle(&quot;Amount of Each Element Discovered at Ancient Pottery Sites&quot;)</code></pre>
+<pre><code>## No summary function supplied, defaulting to `mean_se()`</code></pre>
+<p><img src="../../../../../post/2020-12-09-test-post_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
 
             
         <hr>         <div class="related-posts">

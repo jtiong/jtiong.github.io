@@ -1,8 +1,145 @@
 ---
 title: "Project 1"
-author: "Me"
-date: "2020-12-01"
+author: "Joyce"
+date: "2020-12-09"
 output: html_document
 ---
 
-## Test Project 1
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{R}
+library(readr)
+library(tidyr)
+library(tidyverse)
+Public_Schools <- read.csv("Public Schools.csv")
+USArrests <- read.csv("USArrests.csv")
+Census_Regions <- read.csv("Census Regions.csv")
+```
+
+*Introduction: The first data set that I chose is from the sandwich package, titled Public Schools. This data set provides the per capita expenditures on public schools and per capita income per U.S. state in 1979. The second dataset that I chose was from the datasets package, titled USArrests. This data set provides information from 1973 on the percentage of the population living in urban areas along with the number of arrests for assault, murder, and rape per 100,000 residents in each U.S. state, not including the District of Columbia. While the data are from different years, I do not believe that the changes in crime rates from 1973 to 1979 in states across the U.S. would have been significant enough to render combining both datasets invalid. I found and downloaded the Public Schools and USArrests datasets from the website: https: //vincentarelbundock.github.io/Rdatasets/datasets.html. The third dataset was one that I created called Census regions, which provides the census region for each state. I included this so that I would have an additional categorical variable to work on. I chose to analyze these sets of data because I am interested in issues of social justice and education. While current research has shown that higher education expenditure is correlated with reduced crime, I was currious as to whether this trend was true back in the 1970s, around the time in which American neoliberalism was just beginning. I anticipate finding an inverse correlation between per capita expenditure on education and violent crime rates.*
+```{R}
+# joining/merging 
+joined_table <- left_join(USArrests, Public_Schools)
+fully_joined <- left_join(joined_table, Census_Regions)
+```
+*I used the left join to combine the first two, with the USArrests data set on the left because I wanted them joined by state, without including Washington D.C., and the USArrests dataset is the one that didn't include Washington D.C. This allowed me to drop Washington D.C. from the dataset. I used left join to add the Census Region because I wanted to join the region based on the State names.*
+```{R}
+#Mutate for new variable 
+fully_joined<- fully_joined %>% na.omit %>%  mutate(Total_Violent_Crime_Arrests= Murder + Assault + Rape)
+```
+*I removed the NAs from my dataset and created a variable for the total amount of violent crime arrests per 100,000, which sums the arrests per 100,000 residents for rape, murder, and assault.* 
+
+```{R}
+fully_joined %>% arrange(desc(Total_Violent_Crime_Arrests))
+```
+
+*I arranged the data to see which state had the highest total violent crime arrests. Based on my data, this state was Florida, with a rate of roughly 382 arrests for violent crimes per 100,000 residents.* 
+
+```{R}
+#overall statistics 
+#correlation matrix 
+numeric <- fully_joined %>% select(Murder, Assault, Rape, UrbanPop, `Per.Capita.Expenditure`, `Per.Capita.Income`, Total_Violent_Crime_Arrests) %>% filter(complete.cases(fully_joined))
+correlation <- numeric %>% cor(use="pair")
+correlation 
+
+#summary table 
+library(kableExtra)
+overall_table <- fully_joined %>% rename('Total.Crime.Arrests'='Total_Violent_Crime_Arrests') %>%  summarize_if(is.numeric,list(mean=mean, sd=sd, var=var, min=min, max=max, median=median), na.rm=T) %>% pivot_longer(cols=Murder_mean:Total.Crime.Arrests_median) %>% separate(name,into=c("type", "stat"), sep="_") %>% kbl() %>%
+  kable_paper("hover", full_width = F)
+overall_table
+
+```
+
+*For the overall statistics analysis, I created a correlation matrix that demonstrates the relationships among my numeric variables. I also summarized the mean, standard deviation, variance, minimum, maximum, and standard deviation for each numeric variable. These data represent 7 of my 10 required variables. These data show that there is a strong correlation between states' per capita education expenditure and per capita income and a slight inverse correlation between per capita education expenditure and arrests for murder. * 
+
+```{R}
+#grouped by Region and state statistics 
+Region.table <- fully_joined %>% group_by(Region) %>% summarize(mean_crime= mean(Total_Violent_Crime_Arrests, na.rm=T), mean_education_expenditure=mean(`Per.Capita.Expenditure`, na.rm=T), sd_crime=sd(Total_Violent_Crime_Arrests, na.rm=T) , sd_education_expenditure= sd(`Per.Capita.Expenditure`, na.rm=T), median_crime=median(Total_Violent_Crime_Arrests, na.rm=T), median_education_expenditure=median(`Per.Capita.Expenditure`, na.rm=T) ) %>% arrange(desc(median_crime))
+
+
+Region.table %>% kbl() %>%
+  kable_paper("hover", full_width = F)
+
+Region.State.table <- fully_joined %>% group_by(State,Region) %>% summarize(median_crime=median(Total_Violent_Crime_Arrests, na.rm=T), median_education_expenditure=median(`Per.Capita.Expenditure`, na.rm=T))
+Region.State.table %>% filter( Region =="South") %>% arrange(desc(median_crime))
+```
+
+*I then chose to summarize this data grouped by Census Region to determine which Region had the most violent crime arrests, and which spent the most on education. The results showed that the South had the highest median and mean arrests and had the lowest median and mean expenditures on education, while the Northeast had the lowest median crime arrests and the highest median education expenditure. I chose to arrange based on median values, rather than the means, because of the high standard deviations among the variables. In addition to calculating median and mean crime and expenditure, I also calculated the standard deviation for both measures. These data represent the remaining 3 of my 10 summary statistics. I also created a table that grouped by state and region and filtered to find the state in the South with the most crime arrests, which was Florida. *
+
+```{R}
+#Visualizing
+
+tidycor <- correlation %>% as.data.frame %>% rownames_to_column("var1") %>% pivot_longer(-1,names_to="var2",values_to="correlation")
+tidycor%>%ggplot(aes(var1,var2,fill=correlation)) +
+geom_tile() + scale_fill_gradient2(low="blue",mid="white",high="purple") + geom_text(aes(label=round(correlation,2)),color = "black", size = 3) + xlab("variable 1") + ylab("variable 2") + ggtitle("Correlation Heat Map") + theme(axis.text.x = element_text(size=8, angle = 90))
+```
+
+
+```{R}
+#1st ggplot 
+
+fully_joined %>% ggplot(aes(`Per.Capita.Expenditure`, `Per.Capita.Income`, color=Region)) + geom_point(size=2) + ggtitle("US Education Expenditure vs Income by Census Region") + scale_x_continuous(breaks=seq(0,900, 100)) + xlab("Per Capita Education Expenditure ($)") + ylab("Per Capita Income ($)") + theme(plot.title = element_text(size=12)) + facet_wrap(~Region) + theme(legend.position="none") + geom_smooth(method='lm', se=FALSE)
+```
+
+*Based on my correlation heat map, one of the strongest correlation values was between Per Capita Education Expenditure and Per Capita Income. I therefore chose to analyze this trend facet wraped by the U.S. Census Regions. My ggplot shows that for each region, there is a positive correlation between education expenditure and income. The plots also show that the West region has the greatest variation in education expenditure, and that the Midwest has the weakest correlation between expenditure and income, as evidenced by the smallest slope.*
+
+```{R}
+#2nd ggplot 
+fully_joined %>% select(State, Murder, Assault, Rape, Region) %>% pivot_longer(c("Murder", "Assault", "Rape"), names_to="Crime Type", values_to="count") %>% ggplot(aes(x=Region, y=count, fill=`Crime Type`)) + geom_bar(stat="summary", fun=median, position="dodge") + xlab("US Census Region") + ylab("Number of Arrests per 100,000") + ggtitle("Violent Crime Arrests by Type per US Census Region") + scale_fill_brewer(palette="Spectral") + scale_y_continuous(breaks=seq(0,300, 30))
+```
+
+*After analyzing trends in expenditure and income, I wanted to view the breakdown of violent crime arrests in each region based on the type of crime (assault, murder, rape). I decided to plot the median, rather than the mean, because all four regions showed high variance and high standard deviations in crime. The data show that the South has the highest median number of arrests per 100,000 for assault and murder, and that the West has the highest number of arrests per 100,000 for rape. I also used the pivot command in this visualization in order to group the data such that murder, assault, rape where put into one column under "Crime Type" and there values were placed under "Count."* 
+
+
+```{R}
+#Kmeans, PAM, PCA 
+
+#identify optimal number of clusters with numerical variables of interest 
+library(cluster)
+pam_data<- fully_joined %>% select(`Per.Capita.Expenditure`, `Per.Capita.Income`, Total_Violent_Crime_Arrests)
+sil_width<-vector()
+for(i in 2:10){
+  pam_fit <- pam(pam_data, k = i)
+  sil_width[i] <- pam_fit$silinfo$avg.width
+}
+ggplot()+geom_line(aes(x=1:10,y=sil_width))+scale_x_continuous(name="k",breaks=1:10)
+pam_data
+
+#cluster analysis + scale variable 
+pam1 <-pam_data %>% scale %>% pam(k=3)
+pam1
+
+# summarize clusters 
+pam_clust <- pam_data %>% mutate(cluster=as.factor(pam1$clustering))
+pam_clust %>% group_by(cluster) %>% summarize_if(is.numeric,mean,na.rm=T)
+fully_joined%>%slice(pam1$id.med)
+```
+
+*I first used the silhoutte method with my three numerical values Per Capita State Education Expenditure, Per Capita State Income, and State Total Violent Crime Arrests in order to identify the optimal number of clusters, which in my case, was 3. I then scaled the data and performed the PAM clustering. Finally, I summarized the clusters in order to see the average values for each variable and their medoids.*
+
+```{R}
+#visualize clusters
+pam_clust <- pam_data %>% mutate(cluster=as.factor(pam1$clustering))
+pam_clust %>% ggplot(aes(`Per.Capita.Expenditure`,Total_Violent_Crime_Arrests,color=cluster)) + geom_point(size=2) + xlab("State's Per Capita Education Expenditure") + ylab("State's Violent Crimes Arrests")
+
+library(GGally)
+ggpairs(pam_clust, columns=1:3, aes(color=cluster))+ theme(axis.text.x = element_text(size=6))
+```
+
+*After running the PAM clustering, I created a plot that visualizes the clusters using the two numerical variables Per Capita Education Expenditure and Total Violent Crime Arrests. I then created a ggpairs plot that visualizes the clusters among all three variables of interest (Per Capita Education Expenditure, Per Capita Income, and Total Violent Crimes Arrests). Both graphs show that there is significant overlap between the clusters.*
+
+```{R}
+plot(pam1,which=2)
+```
+
+*The last thing that I did was determine goodness-of-fit. The average silhouette width of 0.37 shows that the structure is weak and could be artificial. This indiacates poor separation and cohesion of clusters. *
+
+*The overall results show that there is a strong correlation between a state's per capita income and per capita expenditure on education. This is evidenced by the high correlation value of 0.785. The overlapping of the clusters and poor goodness-of-fit demonstrate that there is high variance within the clusters.*
