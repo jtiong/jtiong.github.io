@@ -31,3 +31,4 @@ long_pottery <- df %>% pivot_longer(c("Al", "Fe", "Mg", "Ca", "Na"), names_to="E
 long_pottery %>% ggplot(aes(x=Elements, y=Amounts))+geom_bar(stat="summary")+ggtitle("Amount of Each Element Discovered at Ancient Pottery Sites")
 ```
 
+![](https://thepotterywheel.com/wp-content/uploads/2019/10/The-difference-between-ceramics-and-pottery.jpg)
